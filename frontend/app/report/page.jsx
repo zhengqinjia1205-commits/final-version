@@ -369,10 +369,10 @@ export default function ReportPage() {
   }
 
   function renderBlock(block, idx, highlightModel) {
-    const t = block?.type
-    if (t === "h1") return <h1 key={`b_${idx}`} className="magTitle">{String(block?.text || "")}</h1>
-    if (t === "p") return <p key={`b_${idx}`} className="magSub" style={{ marginTop: 8 }}>{String(block?.text || "")}</p>
-    if (t === "callout") {
+    const type = block?.type
+    if (type === "h1") return <h1 key={`b_${idx}`} className="magTitle">{String(block?.text || "")}</h1>
+    if (type === "p") return <p key={`b_${idx}`} className="magSub" style={{ marginTop: 8 }}>{String(block?.text || "")}</p>
+    if (type === "callout") {
       return (
         <div key={`b_${idx}`} className="magCallout" style={{ marginTop: 12 }}>
           <strong>{String(block?.title || "")}</strong>
@@ -380,7 +380,7 @@ export default function ReportPage() {
         </div>
       )
     }
-    if (t === "bullets") {
+    if (type === "bullets") {
       const items = Array.isArray(block?.items) ? block.items : []
       return (
         <ul key={`b_${idx}`} className="list" style={{ marginTop: 10 }}>
@@ -388,7 +388,7 @@ export default function ReportPage() {
         </ul>
       )
     }
-    if (t === "table") {
+    if (type === "table") {
       return (
         <div key={`b_${idx}`} style={{ marginTop: 10 }}>
           {block?.title ? <div className="magPill" style={{ marginBottom: 10 }}>{String(block.title)}</div> : null}
@@ -396,7 +396,7 @@ export default function ReportPage() {
         </div>
       )
     }
-    if (t === "chart") {
+    if (type === "chart") {
       return (
         <div key={`b_${idx}`} style={{ marginTop: 10 }}>
           {block?.title ? <div className="magPill" style={{ marginBottom: 10 }}>{String(block.title)}</div> : null}
@@ -404,19 +404,19 @@ export default function ReportPage() {
         </div>
       )
     }
-    if (t === "recommendations") {
+    if (type === "recommendations") {
       const items = Array.isArray(block?.items) ? block.items : []
       return (
         <div key={`b_${idx}`} className="magGrid" style={{ marginTop: 10 }}>
-          {items.slice(0, 2).map((r, i) => (
+          {items.map((r, i) => (
             <div key={`rec_${idx}_${i}`} className="magCard">
-              <h4>{t(`建议 ${i + 1}`, `Recommendation ${i + 1}`)}</h4>
+              <h4>{lang === "zh" ? `建议 ${i + 1}` : `Recommendation ${i + 1}`}</h4>
               <div style={{ fontSize: 18, fontWeight: 800, letterSpacing: "-0.01em" }}>{String(r?.title || "—")}</div>
               <div style={{ height: 10 }} />
               <ul className="list">
-                <li>{t("发现", "Finding")}：{String(r?.finding || "—")}</li>
-                <li>{t("行动", "Action")}：{String(r?.action || "—")}</li>
-                <li>{t("理由", "Reason")}：{String(r?.reason || "—")}</li>
+                <li>{lang === "zh" ? "发现" : "Finding"}：{String(r?.finding || "—")}</li>
+                <li>{lang === "zh" ? "行动" : "Action"}：{String(r?.action || "—")}</li>
+                <li>{lang === "zh" ? "理由" : "Reason"}：{String(r?.reason || "—")}</li>
               </ul>
             </div>
           ))}
