@@ -110,7 +110,7 @@ export default function ForecastClient({ mode }) {
   const [freq, setFreq] = useState("D")
   const [testSize, setTestSize] = useState("0.2")
   const [randomSeed, setRandomSeed] = useState("42")
-  const [periods, setPeriods] = useState("4")
+  const [periods, setPeriods] = useState("10")
   const [apiBase, setApiBase] = useState(process.env.NEXT_PUBLIC_API_BASE_URL || "")
   const [timeCol, setTimeCol] = useState("")
   const [demandCol, setDemandCol] = useState("")
@@ -1136,7 +1136,7 @@ export default function ForecastClient({ mode }) {
               </div>
               <div className="field">
                 <label>{t("预测期数", "Forecast Periods")}</label>
-                <input value={periods} onChange={(e) => setPeriods(e.target.value)} placeholder="4" />
+                <input value={periods} onChange={(e) => setPeriods(e.target.value)} placeholder="10" />
               </div>
               <div className="field">
                 <label>{t("模型范围", "Model Scope")}</label>

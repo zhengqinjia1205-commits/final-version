@@ -306,7 +306,7 @@ export default function AgentClient() {
             </div>
             <div className="field">
               <label>{t("预测期数", "Forecast Periods")}</label>
-              <input value={periods} onChange={(e) => setPeriods(e.target.value)} placeholder="4" />
+              <input value={periods} onChange={(e) => setPeriods(e.target.value)} placeholder="10" />
             </div>
             <div className="field">
               <label>{t("时间列名 (选填)", "Time Column (Optional)")}</label>
@@ -377,12 +377,16 @@ export default function AgentClient() {
               </label>
             </div>
             <div className="field" style={{ gridColumn: "span 12" }}>
-              <label>{t("业务描述/提示词 (选填)", "Business Description/Prompt (Optional)")}</label>
+              <label>{t("指令 / 数据", "Prompt / Data")}</label>
               <textarea
-                rows={4}
                 value={prompt}
                 onChange={(e) => setPrompt(e.target.value)}
-                placeholder={t("e.g.：这是某零食每日销量和售价数据，请帮我预测未来两周销量并给库存建议；或描述截图中的图表并给出预测方案。", "e.g.: Daily sales data for snacks, predict next 2 weeks and give inventory tips.")}
+                placeholder={t(
+                  "e.g.：这是今年 Q1 到 Q4 的销售数据（截图/文本），请生成十页报告预测明年的需求趋势。",
+                  "e.g. Here is Q1 to Q4 sales data. Please generate a 10-page report predicting next year's demand."
+                )}
+                rows={4}
+                style={{ width: "100%", resize: "vertical" }}
               />
             </div>
             <div className="field" style={{ gridColumn: "span 12" }}>

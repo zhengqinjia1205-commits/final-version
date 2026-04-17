@@ -275,11 +275,11 @@ export default function ReportPage() {
 
   useEffect(() => {
     if (!report) return
-    const title = report?.cover?.title || report?.dataset_name ? t(`需求预测报告 — ${String(report.dataset_name)}`, `Demand Forecast Report — ${String(report.dataset_name)}`) : t("需求预测报告", "Demand Forecast Report")
+    const title = report?.cover?.title || report?.dataset_name ? (lang === "zh" ? `需求预测报告 — ${String(report.dataset_name)}` : `Demand Forecast Report — ${String(report.dataset_name)}`) : (lang === "zh" ? "需求预测报告" : "Demand Forecast Report")
     try {
       document.title = title
     } catch {}
-  }, [report, t])
+  }, [report, lang])
 
   const headerRight = (
     <>
@@ -423,17 +423,42 @@ export default function ReportPage() {
         </div>
       )
     }
+    if (type === "bar_chart") {
+      const items = Array.isArray(block?.chart_data) ? block.chart_data : []
+      if (!items.length) return null
+      const maxVal = Math.max(...items.map(it => Number(it.value) || 0)) || 1
+      return (
+        <div key={`b_${idx}`} style={{ marginTop: 10, padding: 16, background: "rgba(255,255,255,0.6)", borderRadius: 8, border: "1px solid rgba(16,50,66,0.1)" }}>
+          {block?.title ? <div className="magPill" style={{ marginBottom: 12 }}>{String(block.title)}</div> : null}
+          <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+            {items.map((it, i) => {
+              const val = Number(it.value) || 0
+              const pct = Math.min(100, Math.max(0, (val / maxVal) * 100))
+              return (
+                <div key={i} style={{ display: "flex", alignItems: "center", fontSize: 13 }}>
+                  <div style={{ width: 100, fontWeight: 600, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }} title={String(it.label)}>{String(it.label)}</div>
+                  <div style={{ flex: 1, height: 16, background: "rgba(16,50,66,0.05)", borderRadius: 4, overflow: "hidden", margin: "0 10px" }}>
+                    <div style={{ width: `${pct}%`, height: "100%", background: "rgba(16,50,66,0.8)", borderRadius: 4 }} />
+                  </div>
+                  <div style={{ width: 60, textAlign: "right", fontFamily: "monospace" }}>{val.toFixed(2)}</div>
+                </div>
+              )
+            })}
+          </div>
+        </div>
+      )
+    }
     return null
   }
 
-  if (pages.length === 10) {
+  if (pages.length >= 10) {
     const highlightModel = report?.best_model?.name || report?.best_model?.model || ""
     return (
       <>
         <BgCanvas />
         <div className="mask" />
         <div className="shell">
-          <AppShell active="report" title="Report" subtitle={t("10 页管理层预测报告（可打印为 PDF）。", "10-Page Management Forecast Report (Printable PDF).")} headerRight={headerRight}>
+          <AppShell active="report" title="Report" subtitle={t("综合管理层预测报告（可打印为 PDF）。", "Comprehensive Management Forecast Report (Printable PDF).")} headerRight={headerRight}>
             <div className="panel">
               <div className="reportDoc">
                 <div className="reportBook reportBookMag">
