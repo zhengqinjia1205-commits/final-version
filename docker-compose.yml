@@ -1,0 +1,29 @@
+services:
+  backend:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    environment:
+      PORT: "8000"
+      FORECASTPRO_FAST: "1"
+      FORECASTPRO_ARIMA_MAX_SECONDS: "8"
+      FORECASTPRO_ARIMA_MAXITER: "25"
+      # DeepSeek（可选）：用于 OCR 表格清洗、智能分析、以及 /api/deepseek/chat 转发接口
+      DEEPSEEK_API_KEY: "${DEEPSEEK_API_KEY:-}"
+      DEEPSEEK_BASE_URL: "${DEEPSEEK_BASE_URL:-https://api.deepseek.com}"
+      DEEPSEEK_MODEL: "${DEEPSEEK_MODEL:-deepseek-chat}"
+    ports:
+      - "8000:8000"
+
+  frontend:
+    build:
+      context: .
+      dockerfile: frontend/Dockerfile
+    environment:
+      PORT: "3000"
+      API_BASE_URL: "http://backend:8000"
+      NEXT_PUBLIC_API_BASE_URL: "http://backend:8000"
+    ports:
+      - "3000:3000"
+    depends_on:
+      - backend
