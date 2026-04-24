@@ -272,40 +272,56 @@ export default function ForecastClient({ mode }) {
     })
   }
 
+  const [zoom1, setZoom1] = useState(1)
+  const [zoom2, setZoom2] = useState(1)
+
   function onChartMove(e) {
     if (!chart?.domain || !chart?.totalPoints) return
     const el = chartWrapRef.current
     if (!el) return
-    const rect = el.getBoundingClientRect()
-    const x = e.clientX - rect.left
-    const y = e.clientY - rect.top
+    const svgEl = el.querySelector("svg")
+    if (!svgEl) return
+
+    const svgRect = svgEl.getBoundingClientRect()
+    const xInSvgPixels = e.clientX - svgRect.left
+    const xViewBox = (xInSvgPixels / svgRect.width) * chart.width
+
     const innerW = chart.width - chart.pad * 2
     const denom = Math.max(chart.totalPoints - 1, 1)
-    const raw = (x - chart.pad) / innerW
+    const raw = (xViewBox - chart.pad) / innerW
     const idx = Math.round(raw * denom)
     const clamped = clamp(idx, 0, chart.totalPoints - 1)
+
     setHoverIndex(clamped)
-    setHoverXY({ x, y })
+    const rect = el.getBoundingClientRect()
+    setHoverXY({ x: e.clientX - rect.left, y: e.clientY - rect.top })
   }
 
   function onChartMoveBest(e) {
     if (!chartBest?.domain || !chartBest?.totalPoints) return
     const el = chartWrapBestRef.current
     if (!el) return
-    const rect = el.getBoundingClientRect()
-    const x = e.clientX - rect.left
-    const y = e.clientY - rect.top
+    const svgEl = el.querySelector("svg")
+    if (!svgEl) return
+
+    const svgRect = svgEl.getBoundingClientRect()
+    const xInSvgPixels = e.clientX - svgRect.left
+    const xViewBox = (xInSvgPixels / svgRect.width) * chartBest.width
+
     const innerW = chartBest.width - chartBest.pad * 2
     const denom = Math.max(chartBest.totalPoints - 1, 1)
-    const raw = (x - chartBest.pad) / innerW
+    const raw = (xViewBox - chartBest.pad) / innerW
     const idx = Math.round(raw * denom)
     const clamped = clamp(idx, 0, chartBest.totalPoints - 1)
+
     setHoverIndexBest(clamped)
-    setHoverXYBest({ x, y })
+    const rect = el.getBoundingClientRect()
+    setHoverXYBest({ x: e.clientX - rect.left, y: e.clientY - rect.top })
   }
 
   const chart = useMemo(() => {
-    const width = 760
+    const baseWidth = 760
+    const width = baseWidth * zoom1
     const height = 260
     const pad = 46
     const actual = data?.history?.actual || []
@@ -364,7 +380,7 @@ export default function ForecastClient({ mode }) {
       .concat(
         ...methods.map((m) => (Array.isArray(testPredByMethod?.[m]) ? testPredByMethod[m].filter((v) => v !== null && v !== undefined) : []))
       )
-      .filter((v) => Number.isFinite(Number(v)))
+      .filter((v) => v !== null && v !== undefined && Number.isFinite(Number(v)))
       .map((v) => Number(v))
 
     const min = Math.min(...allForDomain)
@@ -384,7 +400,7 @@ export default function ForecastClient({ mode }) {
       fittedPairs.push([i, Number(v)])
     }
     const fittedPoints =
-      fittedPairs.length >= 2
+      domain && fittedPairs.length >= 2
         ? buildPolylineWithIndex(
             fittedPairs.map((x) => x[1]),
             fittedPairs.map((x) => x[0]),
@@ -480,10 +496,12 @@ export default function ForecastClient({ mode }) {
     methodRidge,
     methodLasso,
     includeAdvanced,
+    zoom1,
   ])
 
   const chartBest = useMemo(() => {
-    const width = 760
+    const baseWidth = 760
+    const width = baseWidth * zoom2
     const height = 260
     const pad = 46
     const actual = data?.history?.actual || []
@@ -522,19 +540,6 @@ export default function ForecastClient({ mode }) {
       if (!Number.isFinite(Number(v))) continue
       fittedPairs.push([i, Number(v)])
     }
-    const fittedPoints =
-      fittedPairs.length >= 2
-        ? buildPolylineWithIndex(
-            fittedPairs.map((x) => x[1]),
-            fittedPairs.map((x) => x[0]),
-            null,
-            width,
-            height,
-            pad,
-            totalPoints
-          )
-        : ""
-
     const lastActual = actualLen ? actual[actualLen - 1] : null
     const fcWithAnchor = lastActual !== null ? [lastActual, ...fc] : fc
     const idx = fcWithAnchor.map((_, i) => Math.max(actualLen - 1, 0) + i)
@@ -546,10 +551,23 @@ export default function ForecastClient({ mode }) {
       .concat(fc || [])
       .concat(up || [])
       .concat(lo || [])
-      .filter((v) => Number.isFinite(Number(v)))
+      .filter((v) => v !== null && v !== undefined && Number.isFinite(Number(v)))
       .map((v) => Number(v))
 
     const domain = domainVals.length ? { min: Math.min(...domainVals), max: Math.max(...domainVals) } : null
+
+    const fittedPoints =
+      domain && fittedPairs.length >= 2
+        ? buildPolylineWithIndex(
+            fittedPairs.map((x) => x[1]),
+            fittedPairs.map((x) => x[0]),
+            domain,
+            width,
+            height,
+            pad,
+            totalPoints
+          )
+        : ""
 
     const forecastPoints =
       domain && fcWithAnchor.length >= 2 ? buildPolylineWithIndex(fcWithAnchor.map((v) => Number(v)), idx, domain, width, height, pad, totalPoints) : ""
@@ -569,7 +587,7 @@ export default function ForecastClient({ mode }) {
       predPairs.push([i, Number(v)])
     }
     const testPoints =
-      predPairs.length >= 2
+      domain && predPairs.length >= 2
         ? buildPolylineWithIndex(
             predPairs.map((x) => x[1]),
             predPairs.map((x) => x[0]),
@@ -606,7 +624,7 @@ export default function ForecastClient({ mode }) {
       areaPoints,
       splitIndex,
     }
-  }, [data])
+  }, [data, zoom2])
 
   const requestedMethods = useMemo(() => {
     const methods = []
@@ -1228,7 +1246,15 @@ export default function ForecastClient({ mode }) {
           <div className="formGrid">
             <div className="field">
               <label>{t("数据文件 (CSV / Excel)", "Data File (CSV / Excel)")}</label>
-              <input type="file" accept=".csv,.xlsx,.xls" onChange={(e) => setFile(e.target.files?.[0] || null)} />
+              <input
+                type="file"
+                accept=".csv,.xlsx,.xls"
+                onChange={(e) => {
+                  setFile(e.target.files?.[0] || null)
+                  setPreview(null)
+                  setPreviewError("")
+                }}
+              />
               {file ? (
                 <div className="muted" style={{ marginTop: 6 }}>
                   {file.name} · {Math.max(1, Math.round(file.size / 1024))} KB
@@ -1492,53 +1518,51 @@ export default function ForecastClient({ mode }) {
           </div>
         ) : null}
 
-        <div className="muted" style={{ margin: "4px 0 10px" }}>
-          {t("Chart 1：回测对比（前 80% Train / 后 20% Test，使用 Test Set Forecast 进行对比，Future period 不参与误差评估）", "Chart 1: Backtest Comparison (First 80% Train / Last 20% Test, Test Set Forecast used for comparison, Future period not used for error eval)")}
+        <div className="muted" style={{ margin: "4px 0 10px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+          <span>{t("Chart 1：回测对比（前 80% Train / 后 20% Test，使用 Test Set Forecast 进行对比，Future period 不参与误差评估）", "Chart 1: Backtest Comparison (First 80% Train / Last 20% Test, Test Set Forecast used for comparison, Future period not used for error eval)")}</span>
+          <div style={{ display: "flex", gap: 6 }}>
+            <button type="button" onClick={() => setZoom1((z) => Math.max(1, z - 1))} style={{ background: "rgba(255,255,255,0.9)", border: "1px solid rgba(16,50,66,0.2)", borderRadius: 6, padding: "2px 8px", cursor: "pointer", fontSize: 13, color: "#103242" }}>-</button>
+            <button type="button" onClick={() => setZoom1(1)} style={{ background: "rgba(255,255,255,0.9)", border: "1px solid rgba(16,50,66,0.2)", borderRadius: 6, padding: "2px 8px", cursor: "pointer", fontSize: 13, color: "#103242" }}>Reset</button>
+            <button type="button" onClick={() => setZoom1((z) => Math.min(10, z + 1))} style={{ background: "rgba(255,255,255,0.9)", border: "1px solid rgba(16,50,66,0.2)", borderRadius: 6, padding: "2px 8px", cursor: "pointer", fontSize: 13, color: "#103242" }}>+</button>
+          </div>
         </div>
         <div
           className="svgwrap"
-          ref={chartWrapRef}
           style={{ position: "relative" }}
-          onMouseMove={onChartMove}
-          onMouseLeave={() => {
-            setHover(null)
-            setHoverIndex(null)
-            setHoverXY(null)
-            setActiveMethod(null)
-          }}
         >
-          {hoverInfo?.date && hoverXY ? (
-            <div
-              style={{
-                position: "absolute",
-                left: clamp(hoverXY.x + 10, 10, 520),
-                top: clamp(hoverXY.y + 10, 10, 190),
-                padding: "8px 10px",
-                borderRadius: 12,
-                background: "rgba(255,255,255,0.92)",
-                border: "1px solid rgba(16,50,66,0.14)",
-                boxShadow: "0 10px 26px rgba(11,31,42,0.14)",
-                backdropFilter: "blur(10px)",
-                fontSize: 12,
-                pointerEvents: "none",
-              }}
-            >
-              <div className="mono" style={{ marginBottom: 6 }}>
-                {hoverInfo.date}
-              </div>
-              {(hoverInfo.values || []).slice(0, 8).map((v) => (
-                <div key={v.key} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
-                  <span style={{ display: "inline-flex", alignItems: "center", gap: 8 }}>
-                    <span style={{ display: "inline-block", width: 10, height: 10, borderRadius: 999, background: v.color }} />
-                    <span>{v.label}</span>
-                  </span>
-                  <span className="mono">{formatNumber(v.value)}</span>
+          <div ref={chartWrapRef} style={{ overflowX: "auto", width: "100%" }} onMouseMove={onChartMove} onMouseLeave={() => { setHover(null); setHoverIndex(null); setHoverXY(null); setActiveMethod(null); }}>
+            {hoverInfo?.date && hoverXY ? (
+              <div
+                style={{
+                  position: "absolute",
+                  left: hoverXY.x > (chartWrapRef.current?.getBoundingClientRect()?.width || 800) - 240 ? hoverXY.x - 240 : hoverXY.x + 10,
+                  top: clamp(hoverXY.y + 10, 10, 190),
+                  padding: "8px 10px",
+                  borderRadius: 12,
+                  background: "rgba(255,255,255,0.92)",
+                  border: "1px solid rgba(16,50,66,0.14)",
+                  boxShadow: "0 10px 26px rgba(11,31,42,0.14)",
+                  backdropFilter: "blur(10px)",
+                  fontSize: 12,
+                  pointerEvents: "none",
+                  zIndex: 20,
+                }}
+              >
+                <div className="mono" style={{ marginBottom: 6 }}>
+                  {hoverInfo.date}
                 </div>
-              ))}
-            </div>
-          ) : null}
-
-          <svg viewBox="0 0 760 260" width="100%" height="260" preserveAspectRatio="none">
+                {(hoverInfo.values || []).slice(0, 8).map((v) => (
+                  <div key={v.key} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
+                    <span style={{ display: "inline-flex", alignItems: "center", gap: 8 }}>
+                      <span style={{ display: "inline-block", width: 10, height: 10, borderRadius: 999, background: v.color }} />
+                      <span>{v.label}</span>
+                    </span>
+                    <span className="mono">{formatNumber(v.value)}</span>
+                  </div>
+                ))}
+              </div>
+            ) : null}
+            <svg viewBox={`0 0 ${chart.width} 260`} style={{ display: "block", minWidth: "100%", width: `${zoom1 * 100}%`, height: 260 }} preserveAspectRatio="none">
             {chart.domain ? (
               <>
                 {[0, 1, 2, 3].map((i) => {
@@ -1565,7 +1589,7 @@ export default function ForecastClient({ mode }) {
                   {history?.dates?.length ? String(history.dates[0]).slice(0, 10) : "—"}
                 </text>
                 <text x={chart.width - chart.pad - 44} y={chart.height - 8} fontSize="11" fill="rgba(21,34,42,0.55)" textAnchor="end" className="mono">
-                  {forecast?.dates?.length ? String(forecast.dates[forecast.dates.length - 1]).slice(0, 10) : "—"}
+                  {history?.dates?.length ? String(history.dates[history.dates.length - 1]).slice(0, 10) : "—"}
                 </text>
                 {chart.splitIndex !== null && chart.splitIndex !== undefined ? (
                   <line
@@ -1638,8 +1662,8 @@ export default function ForecastClient({ mode }) {
               <line x1={hoverInfo.xSvg} y1={chart.pad} x2={hoverInfo.xSvg} y2={chart.height - chart.pad} stroke="rgba(16,50,66,0.16)" />
             ) : null}
           </svg>
+          </div>
         </div>
-
         <div className="row" style={{ marginTop: 10, justifyContent: "space-between" }}>
           <div className="muted">
             <span style={{ display: "inline-flex", alignItems: "center", gap: 8, marginRight: 14 }}>
@@ -1729,51 +1753,52 @@ export default function ForecastClient({ mode }) {
         ) : null}
 
         <div style={{ height: 18 }} />
-        <div className="muted" style={{ margin: "4px 0 10px" }}>
-          {t("Chart 2：最佳模型（历史 + 拟合值 + 测试集预测 + 未来预测）", "Chart 2: Best Model (History + Fitted + Test Set Forecast + Future Forecast)")}
+        <div className="muted" style={{ margin: "4px 0 10px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+          <span>{t("Chart 2：最佳模型（历史 + 拟合值 + 测试集预测 + 未来预测）", "Chart 2: Best Model (History + Fitted + Test Set Forecast + Future Forecast)")}</span>
+          <div style={{ display: "flex", gap: 6 }}>
+            <button type="button" onClick={() => setZoom2((z) => Math.max(1, z - 1))} style={{ background: "rgba(255,255,255,0.9)", border: "1px solid rgba(16,50,66,0.2)", borderRadius: 6, padding: "2px 8px", cursor: "pointer", fontSize: 13, color: "#103242" }}>-</button>
+            <button type="button" onClick={() => setZoom2(1)} style={{ background: "rgba(255,255,255,0.9)", border: "1px solid rgba(16,50,66,0.2)", borderRadius: 6, padding: "2px 8px", cursor: "pointer", fontSize: 13, color: "#103242" }}>Reset</button>
+            <button type="button" onClick={() => setZoom2((z) => Math.min(10, z + 1))} style={{ background: "rgba(255,255,255,0.9)", border: "1px solid rgba(16,50,66,0.2)", borderRadius: 6, padding: "2px 8px", cursor: "pointer", fontSize: 13, color: "#103242" }}>+</button>
+          </div>
         </div>
         <div
           className="svgwrap"
-          ref={chartWrapBestRef}
           style={{ position: "relative" }}
-          onMouseMove={onChartMoveBest}
-          onMouseLeave={() => {
-            setHoverIndexBest(null)
-            setHoverXYBest(null)
-          }}
         >
-          {hoverInfoBest?.date && hoverXYBest ? (
-            <div
-              style={{
-                position: "absolute",
-                left: clamp(hoverXYBest.x + 10, 10, 520),
-                top: clamp(hoverXYBest.y + 10, 10, 190),
-                padding: "8px 10px",
-                borderRadius: 12,
-                background: "rgba(255,255,255,0.92)",
-                border: "1px solid rgba(16,50,66,0.14)",
-                boxShadow: "0 10px 26px rgba(11,31,42,0.14)",
-                backdropFilter: "blur(10px)",
-                fontSize: 12,
-                pointerEvents: "none",
-              }}
-            >
-              <div className="mono" style={{ marginBottom: 6 }}>
-                {hoverInfoBest.date}
-              </div>
-              {(hoverInfoBest.values || []).slice(0, 6).map((v) => (
-                <div key={v.key} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
-                  <span style={{ display: "inline-flex", alignItems: "center", gap: 8 }}>
-                    <span style={{ display: "inline-block", width: 10, height: 10, borderRadius: 999, background: v.color }} />
-                    <span>{v.label}</span>
-                  </span>
-                  <span className="mono">{formatNumber(v.value)}</span>
+          <div ref={chartWrapBestRef} style={{ overflowX: "auto", width: "100%" }} onMouseMove={onChartMoveBest} onMouseLeave={() => { setHoverIndexBest(null); setHoverXYBest(null); }}>
+            {hoverInfoBest?.date && hoverXYBest ? (
+              <div
+                style={{
+                  position: "absolute",
+                  left: hoverXYBest.x > (chartWrapBestRef.current?.getBoundingClientRect()?.width || 800) - 240 ? hoverXYBest.x - 240 : hoverXYBest.x + 10,
+                  top: clamp(hoverXYBest.y + 10, 10, 190),
+                  padding: "8px 10px",
+                  borderRadius: 12,
+                  background: "rgba(255,255,255,0.92)",
+                  border: "1px solid rgba(16,50,66,0.14)",
+                  boxShadow: "0 10px 26px rgba(11,31,42,0.14)",
+                  backdropFilter: "blur(10px)",
+                  fontSize: 12,
+                  pointerEvents: "none",
+                  zIndex: 20,
+                }}
+              >
+                <div className="mono" style={{ marginBottom: 6 }}>
+                  {hoverInfoBest.date}
                 </div>
-              ))}
-            </div>
-          ) : null}
+                {(hoverInfoBest.values || []).slice(0, 6).map((v) => (
+                  <div key={v.key} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
+                    <span style={{ display: "inline-flex", alignItems: "center", gap: 8 }}>
+                      <span style={{ display: "inline-block", width: 10, height: 10, borderRadius: 999, background: v.color }} />
+                      <span>{v.label}</span>
+                    </span>
+                    <span className="mono">{formatNumber(v.value)}</span>
+                  </div>
+                ))}
+              </div>
+            ) : null}
 
-          <svg viewBox="0 0 760 260" width="100%" height="260" preserveAspectRatio="none">
+            <svg viewBox={`0 0 ${chartBest.width} 260`} style={{ display: "block", minWidth: "100%", width: `${zoom2 * 100}%`, height: 260 }} preserveAspectRatio="none">
             {chartBest.domain ? (
               <>
                 {[0, 1, 2, 3].map((i) => {
@@ -1845,8 +1870,9 @@ export default function ForecastClient({ mode }) {
             ) : null}
           </svg>
         </div>
+      </div>
 
-        <div className="row" style={{ marginTop: 10, justifyContent: "space-between" }}>
+      <div className="row" style={{ marginTop: 10, justifyContent: "space-between" }}>
           <div className="muted">
             <span style={{ display: "inline-flex", alignItems: "center", gap: 8, marginRight: 14 }}>
               <span style={{ display: "inline-block", width: 12, height: 3, background: "#15222A", borderRadius: 999 }} />

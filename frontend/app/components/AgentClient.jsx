@@ -34,7 +34,13 @@ export default function AgentClient() {
   const [timeCol, setTimeCol] = useState("")
   const [demandCol, setDemandCol] = useState("")
   const [includeAdvanced, setIncludeAdvanced] = useState(false)
+  const [methodRF, setMethodRF] = useState(false)
+  const [methodXGB, setMethodXGB] = useState(false)
+  const [methodLR, setMethodLR] = useState(false)
+  const [methodRidge, setMethodRidge] = useState(false)
+  const [methodLasso, setMethodLasso] = useState(false)
   const [datasetName, setDatasetName] = useState("")
+
   const [datasetTheme, setDatasetTheme] = useState("")
   const [dataDescription, setDataDescription] = useState("")
   const [useLlm, setUseLlm] = useState(true)
@@ -58,6 +64,20 @@ export default function AgentClient() {
       setLlmApiKey(sessionStorage.getItem("forecastpro:llmApiKey") || "")
     }
   }, [])
+
+  useEffect(() => {
+    const anyAdv = Boolean(methodLR || methodRidge || methodLasso || methodRF || methodXGB)
+    if (anyAdv && !includeAdvanced) setIncludeAdvanced(true)
+  }, [methodLR, methodRidge, methodLasso, methodRF, methodXGB, includeAdvanced])
+
+  useEffect(() => {
+    if (includeAdvanced) return
+    if (methodLR) setMethodLR(false)
+    if (methodRidge) setMethodRidge(false)
+    if (methodLasso) setMethodLasso(false)
+    if (methodRF) setMethodRF(false)
+    if (methodXGB) setMethodXGB(false)
+  }, [includeAdvanced, methodLR, methodRidge, methodLasso, methodRF, methodXGB])
 
   useEffect(() => {
     let cancelled = false
@@ -145,7 +165,21 @@ export default function AgentClient() {
       f.append("test_size", String(Number(testSize) || 0.2))
       f.append("random_seed", String(Number(randomSeed) || 42))
       f.append("periods", String(Number(periods) || 4))
-      if (includeAdvanced) f.append("include_advanced", "true")
+      if (includeAdvanced) {
+        f.append("include_advanced", "true")
+        const methods = []
+        methods.push("ets")
+        methods.push("naive")
+        methods.push("seasonal_naive")
+        methods.push("moving_average")
+        methods.push("arima")
+        if (methodRF) methods.push("random_forest")
+        if (methodXGB) methods.push("xgboost")
+        if (methodLR) methods.push("linear_regression")
+        if (methodRidge) methods.push("ridge_regression")
+        if (methodLasso) methods.push("lasso_regression")
+        f.append("methods", methods.join(","))
+      }
       if (String(timeCol || "").trim()) f.append("time_col", String(timeCol).trim())
       if (String(demandCol || "").trim()) f.append("demand_col", String(demandCol).trim())
       if (String(datasetName || "").trim()) f.append("dataset_name", String(datasetName).trim())
@@ -186,6 +220,28 @@ export default function AgentClient() {
       try {
         if (json?.mode === "timeseries_csv" || json?.mode === "timeseries_ocr") {
           sessionStorage.setItem("forecastpro:lastResult", JSON.stringify(json))
+          localStorage.setItem(
+            "forecastpro:lastParams",
+            JSON.stringify({
+              freq,
+              testSize,
+              randomSeed,
+              periods,
+              apiBase: normalizeBaseUrl(apiBase) || apiBase,
+              timeCol,
+              demandCol,
+              includeAdvanced,
+              methodLR,
+              methodRidge,
+              methodLasso,
+              methodRF,
+              methodXGB,
+              datasetName,
+              datasetTheme,
+              dataDescription,
+              lang
+            })
+          )
         }
       } catch {}
     } catch (err) {
@@ -276,7 +332,15 @@ export default function AgentClient() {
             </div>
             <div className="field">
               <label>{t("上传文件 (选填)", "Upload File (Optional)")}</label>
-              <input type="file" accept=".csv,.xlsx,.xls,.png,.jpg,.jpeg,.webp,.gif" onChange={(e) => setFile(e.target.files?.[0] || null)} />
+              <input
+                type="file"
+                accept=".csv,.xlsx,.xls,.png,.jpg,.jpeg,.webp,.gif"
+                onChange={(e) => {
+                  setFile(e.target.files?.[0] || null)
+                  setPreview(null)
+                  setPreviewError("")
+                }}
+              />
               {file ? <div className="muted">{file.name}</div> : null}
             </div>
             <div className="field">
@@ -322,6 +386,30 @@ export default function AgentClient() {
                 <input type="checkbox" checked={includeAdvanced} onChange={(e) => setIncludeAdvanced(e.target.checked)} />
                 <span>{t("启用高级模型", "Enable Advanced Models")}</span>
               </label>
+              {includeAdvanced && (
+                <div className="row" style={{ marginTop: 8, flexWrap: "wrap", gap: "12px" }}>
+                  <label style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+                    <input type="checkbox" checked={methodLR} onChange={(e) => setMethodLR(e.target.checked)} />
+                    <span>OLS</span>
+                  </label>
+                  <label style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+                    <input type="checkbox" checked={methodRidge} onChange={(e) => setMethodRidge(e.target.checked)} />
+                    <span>Ridge</span>
+                  </label>
+                  <label style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+                    <input type="checkbox" checked={methodLasso} onChange={(e) => setMethodLasso(e.target.checked)} />
+                    <span>Lasso</span>
+                  </label>
+                  <label style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+                    <input type="checkbox" checked={methodRF} onChange={(e) => setMethodRF(e.target.checked)} />
+                    <span>RF</span>
+                  </label>
+                  <label style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+                    <input type="checkbox" checked={methodXGB} onChange={(e) => setMethodXGB(e.target.checked)} />
+                    <span>XGB</span>
+                  </label>
+                </div>
+              )}
             </div>
             <div className="field">
               <label>{t("数据集名称 (选填)", "Dataset Name (Optional)")}</label>

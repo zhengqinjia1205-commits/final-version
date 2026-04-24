@@ -47,6 +47,7 @@ function computeDomain(seriesList) {
   const vals = []
   for (const s of seriesList) {
     for (const v of s || []) {
+      if (v === null || v === undefined) continue
       const n = Number(v)
       if (Number.isFinite(n)) vals.push(n)
     }
@@ -109,7 +110,9 @@ function buildBandPath(upper, lower, indices, domain, width, height, pad, totalP
 }
 
 function ReportChart({ chartData }) {
-  const width = 980
+  const [zoom, setZoom] = useState(1)
+  const baseWidth = 980
+  const width = baseWidth * zoom
   const height = 320
   const pad = 22
 
@@ -139,14 +142,15 @@ function ReportChart({ chartData }) {
     const fitVals = []
     for (let i = 0; i < Math.min(hd.length, ha.length); i++) {
       const idx = toIdx(hd[i])
-      const v = Number(ha[i])
-      if (idx === null || !Number.isFinite(v)) continue
+      const rawV = ha[i]
+      if (idx === null || rawV === null || rawV === undefined || !Number.isFinite(Number(rawV))) continue
+      const v = Number(rawV)
       histIdx.push(idx)
       histVals.push(v)
-      const fv = Number(hf?.[i])
-      if (Number.isFinite(fv)) {
+      const fvRaw = hf?.[i]
+      if (fvRaw !== null && fvRaw !== undefined && Number.isFinite(Number(fvRaw))) {
         fitIdx.push(idx)
-        fitVals.push(fv)
+        fitVals.push(Number(fvRaw))
       }
     }
 
@@ -156,14 +160,17 @@ function ReportChart({ chartData }) {
     const lowerVals = []
     for (let i = 0; i < Math.min(cd.length, cf.length); i++) {
       const idx = toIdx(cd[i])
-      const v = Number(cf[i])
-      if (idx === null || !Number.isFinite(v)) continue
+      const rawV = cf[i]
+      if (idx === null || rawV === null || rawV === undefined || !Number.isFinite(Number(rawV))) continue
+      const v = Number(rawV)
       combIdx.push(idx)
       combVals.push(v)
-      const uv = Number(cup?.[i])
-      const lv = Number(clo?.[i])
-      upperVals.push(Number.isFinite(uv) ? uv : v)
-      lowerVals.push(Number.isFinite(lv) ? lv : v)
+      const uvRaw = cup?.[i]
+      const lvRaw = clo?.[i]
+      const uv = uvRaw !== null && uvRaw !== undefined && Number.isFinite(Number(uvRaw)) ? Number(uvRaw) : v
+      const lv = lvRaw !== null && lvRaw !== undefined && Number.isFinite(Number(lvRaw)) ? Number(lvRaw) : v
+      upperVals.push(uv)
+      lowerVals.push(lv)
     }
 
     const sIdx = split ? toIdx(split) : null
@@ -188,19 +195,47 @@ function ReportChart({ chartData }) {
 
   const splitX = splitIdx !== null && splitIdx !== undefined ? xForIndex(splitIdx, width, pad, totalPoints) : null
 
+  const startD = timeline[0] ? new Date(timeline[0]).toISOString().slice(0, 10) : "—"
+  const endD = timeline[timeline.length - 1] ? new Date(timeline[timeline.length - 1]).toISOString().slice(0, 10) : "—"
+
   return (
-    <div className="svgwrap" style={{ background: "rgba(255,255,255,0.72)" }}>
-      <svg width="100%" viewBox={`0 0 ${width} ${height}`} style={{ display: "block" }}>
-        {band ? <path d={band} fill="rgba(120,120,120,0.25)" stroke="none" /> : null}
-        {histLine ? <polyline points={histLine} fill="none" stroke="#0B1F3B" strokeWidth="2.6" /> : null}
-        {fitLine ? <polyline points={fitLine} fill="none" stroke="#FF8C00" strokeWidth="2.2" strokeDasharray="6 6" /> : null}
-        {combLine ? <polyline points={combLine} fill="none" stroke="#2E8B57" strokeWidth="3" /> : null}
-        {splitX !== null ? <line x1={splitX} x2={splitX} y1={pad} y2={height - pad} stroke="rgba(0,0,0,0.35)" strokeWidth="2" strokeDasharray="6 6" /> : null}
-      </svg>
-      <div className="row" style={{ padding: 10, justifyContent: "space-between" }}>
-        <div className="muted">Historical Demand (Dark Blue) · Fitted Values (Orange Dashed) · Forecast Values (Green) · 95% Interval (Gray)</div>
-        <div className="muted">
-          Y: {fmtNum(domain.min, 2)} ~ {fmtNum(domain.max, 2)}
+    <div style={{ position: "relative" }}>
+      <div style={{ position: "absolute", top: 12, right: 12, zIndex: 10, display: "flex", gap: 6 }}>
+        <button
+          type="button"
+          onClick={() => setZoom((z) => Math.max(1, z - 1))}
+          style={{ background: "rgba(255,255,255,0.9)", border: "1px solid rgba(16,50,66,0.2)", borderRadius: 6, padding: "2px 8px", cursor: "pointer", fontSize: 13, color: "#103242" }}
+        >
+          -
+        </button>
+        <button
+          type="button"
+          onClick={() => setZoom(1)}
+          style={{ background: "rgba(255,255,255,0.9)", border: "1px solid rgba(16,50,66,0.2)", borderRadius: 6, padding: "2px 8px", cursor: "pointer", fontSize: 13, color: "#103242" }}
+        >
+          Reset
+        </button>
+        <button
+          type="button"
+          onClick={() => setZoom((z) => Math.min(10, z + 1))}
+          style={{ background: "rgba(255,255,255,0.9)", border: "1px solid rgba(16,50,66,0.2)", borderRadius: 6, padding: "2px 8px", cursor: "pointer", fontSize: 13, color: "#103242" }}
+        >
+          +
+        </button>
+      </div>
+      <div className="svgwrap" style={{ background: "rgba(255,255,255,0.72)", overflowX: "auto", width: "100%" }}>
+        <svg viewBox={`0 0 ${width} ${height}`} style={{ display: "block", minWidth: "100%", width: `${zoom * 100}%`, height: height }} preserveAspectRatio="none">
+          {band ? <path d={band} fill="rgba(120,120,120,0.25)" stroke="none" /> : null}
+          {histLine ? <polyline points={histLine} fill="none" stroke="#0B1F3B" strokeWidth="2.6" /> : null}
+          {fitLine ? <polyline points={fitLine} fill="none" stroke="#FF8C00" strokeWidth="2.2" strokeDasharray="6 6" /> : null}
+          {combLine ? <polyline points={combLine} fill="none" stroke="#2E8B57" strokeWidth="3" /> : null}
+          {splitX !== null ? <line x1={splitX} x2={splitX} y1={pad} y2={height - pad} stroke="rgba(0,0,0,0.35)" strokeWidth="2" strokeDasharray="6 6" /> : null}
+        </svg>
+      </div>
+      <div className="row" style={{ padding: 10, justifyContent: "space-between", alignItems: "center" }}>
+        <div className="muted" style={{ fontSize: "11px" }}>Historical Demand (Dark Blue) · Fitted Values (Orange Dashed) · Forecast Values (Green) · 95% Interval (Gray)</div>
+        <div className="muted mono" style={{ fontSize: "11px" }}>
+          {startD} → {endD} &nbsp;|&nbsp; Y: {fmtNum(domain.min, 2)} ~ {fmtNum(domain.max, 2)}
         </div>
       </div>
     </div>

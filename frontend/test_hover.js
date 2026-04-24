@@ -1,0 +1,14 @@
+const zoom1 = 2;
+const scrollLeft = 100;
+const e = { clientX: 200, clientY: 100 };
+const rect = { left: 50, top: 50 };
+const xClient = e.clientX - rect.left;
+const x = xClient + scrollLeft;
+const baseWidth = 760;
+const width = baseWidth * zoom1;
+const pad = 46;
+const innerW = width - pad * 2;
+const denom = 1462 - 1;
+const raw = (x - pad) / innerW;
+const idx = Math.round(raw * denom);
+console.log("xClient:", xClient, "x:", x, "idx:", idx);
