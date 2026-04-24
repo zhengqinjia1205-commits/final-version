@@ -55,11 +55,11 @@ class DeepSeekChatRequest(BaseModel):
     base_url: Optional[str] = None
 
 
-def _read_preview(file_bytes: bytes, suffix: str, nrows: int = 10) -> pd.DataFrame:
+def _read_preview(file_bytes: bytes, suffix: str, nrows: int = 30) -> pd.DataFrame:
     if suffix == ".csv":
-        return pd.read_csv(BytesIO(file_bytes), nrows=int(nrows))
+        return pd.read_csv(BytesIO(file_bytes)).head(int(nrows))
     if suffix in {".xlsx", ".xls"}:
-        return pd.read_excel(BytesIO(file_bytes), nrows=int(nrows))
+        return pd.read_excel(BytesIO(file_bytes)).head(int(nrows))
     raise ValueError(f"不支持的文件格式: {suffix}")
 
 
@@ -736,7 +736,7 @@ async def forecast(
 
         y = agent.data[agent.demand_col].astype(float) if agent.data is not None else None
         if y is not None and len(y) > 0:
-            tail_n = min(len(y), 120)
+            tail_n = len(y)
             y_tail = y.iloc[-tail_n:]
             fitted_best_tail = None
             fitted_by_method_tail = {}
@@ -994,6 +994,7 @@ async def agent_predict(
     demand_col: Optional[str] = Form(None),
     include_advanced: bool = Form(False),
     dataset_name: Optional[str] = Form(None),
+    methods: Optional[str] = Form(None),
     dataset_theme: Optional[str] = Form(None),
     data_description: Optional[str] = Form(None),
     language: str = Form("en"),
@@ -1195,7 +1196,7 @@ async def agent_predict(
             history = None
             method_to_model = {}
             if y is not None and len(y) > 0:
-                tail_n = min(len(y), 120)
+                tail_n = len(y)
                 y_tail = y.iloc[-tail_n:]
                 fitted_best_tail = None
                 fitted_by_method_tail = {}
@@ -1306,7 +1307,13 @@ async def agent_predict(
                             return (agent.advanced_models or {}).get(model_key, {}).get("predictions")
                         return None
 
-                    method_list = ["naive", "seasonal_naive", "moving_average", "ets", "arima"]
+                    method_list = []
+                    if methods:
+                        method_list = [m.strip() for m in methods.split(",") if m.strip()]
+                    else:
+                        method_list = ["naive", "seasonal_naive", "moving_average", "ets", "arima"]
+                        if include_advanced:
+                            method_list.extend(["linear_regression", "ridge_regression", "lasso_regression", "random_forest", "xgboost"])
                     for m in method_list:
                         mk = _model_key_for_method(m)
                         method_to_model[str(m)] = mk
@@ -1376,7 +1383,14 @@ async def agent_predict(
 
             future_by_method = dict(getattr(agent, "future_by_method", {}) or {})
             future_errors = {}
-            for m in ["naive", "seasonal_naive", "moving_average", "ets", "arima"]:
+            target_methods = []
+            if methods:
+                target_methods = [m.strip() for m in methods.split(",") if m.strip()]
+            else:
+                target_methods = ["naive", "seasonal_naive", "moving_average", "ets", "arima"]
+                if include_advanced:
+                    target_methods.extend(["linear_regression", "ridge_regression", "lasso_regression", "random_forest", "xgboost"])
+            for m in target_methods:
                 if m in future_by_method:
                     continue
                 try:
