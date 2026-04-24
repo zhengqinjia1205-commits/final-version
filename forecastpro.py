@@ -2175,13 +2175,12 @@ class ForecastProAgent:
             elif best_baseline is not None and best_advanced is not None:
                 score_b = float(best_baseline[primary_metric])
                 score_a = float(best_advanced[primary_metric])
-                wn = bool(best_advanced.get("resid_white_noise") is True)
-                if score_a < score_b * 0.95 and wn:
+                if score_a < score_b:
                     best_model_row = best_advanced
-                    selection_reason = f"高级模型{primary_metric}显著优于基线（>5%）且残差近似白噪声"
+                    selection_reason = f"高级模型在测试集上的{primary_metric}表现更优"
                 else:
                     best_model_row = best_baseline
-                    selection_reason = "高级模型未表现出显著统计优势，选择稳健可解释的基线模型"
+                    selection_reason = f"基线模型在测试集上的{primary_metric}表现更优或相当"
 
         if best_model_row is None:
             best_model_row = evaluation_df.iloc[0]
@@ -2764,8 +2763,8 @@ class ForecastProAgent:
         except Exception:
             seasonality_summary = {}
 
-        tail_n = 200
         y_full = self.data[self.demand_col].astype(float) if self.data is not None else None
+        tail_n = len(y_full) if y_full is not None else 0
         y_tail = y_full.iloc[-tail_n:] if y_full is not None and len(y_full) > 0 else None
 
         fitted_tail = None
